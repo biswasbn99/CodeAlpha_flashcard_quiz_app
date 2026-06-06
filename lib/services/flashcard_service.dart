@@ -1,5 +1,4 @@
 import 'package:flashcard_quiz_app/model/flashcard_model.dart';
-import 'package:flutter/material.dart';
 
 class FlashcardService {
   final List<FlashCard> _cards = [
@@ -50,8 +49,6 @@ class FlashcardService {
   }
 
   void deleteCard(String id) {
-    _cards.removeWhere(
-        (card)=>card.id==id,
-    );
+    _cards.removeWhere((card) => card.id == id);
   }
 }
