@@ -18,6 +18,7 @@ class _FlashCardHomeScreenState extends State<FlashCardHomeScreen>
 
   //Animation controller
   late AnimationController _flipController;
+  late Animation<double> _flipAnimation;
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _FlashCardHomeScreenState extends State<FlashCardHomeScreen>
       vsync: this,
       duration: Duration(milliseconds: 400),
     );
+    _flipAnimation = Tween<double>(begin: 0, end: 1).animate(_flipController);
   }
 
   @override
@@ -245,43 +247,6 @@ class _FlashCardHomeScreenState extends State<FlashCardHomeScreen>
     );
   }
 
-  Widget _buildFlipCard(FlashCard card) {
-    return GestureDetector(
-      onTap: _toggleAnswer,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Text(
-            _showAnswer ? card.answer : card.question,
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShowAnswerButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: ElevatedButton(
-        onPressed: _toggleAnswer,
-        child: Text(_showAnswer ? 'Hide Answer' : 'Show Answer'),
-      ),
-    );
-  }
-
-  Widget _buildNavButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(onPressed: _goPrev, icon: Icon(Icons.arrow_back)),
-        SizedBox(width: 16),
-        IconButton(onPressed: _goNext, icon: Icon(Icons.arrow_forward)),
-      ],
-    );
-  }
-
   //Progress Bar+Card Counter
   Widget _buildProgressBar() {
     final progrss = (_currentIndex + 1) / _cards.length;
@@ -316,6 +281,237 @@ class _FlashCardHomeScreenState extends State<FlashCardHomeScreen>
               minHeight: 6,
               backgroundColor: Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  //Animation flip card
+  Widget _buildFlipCard(FlashCard card) {
+    return AnimatedBuilder(
+      animation: _flipAnimation,
+      builder: (context, child) {
+        final angle = _flipAnimation.value * 3.14159;
+        final showFront = _flipAnimation.value < 0.5;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(angle),
+          child: showFront
+              ? _buildCardFace(card, isFront: true)
+              : Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..rotateY(3.14159),
+                  child: _buildCardFace(card, isFront: false),
+                ),
+        );
+      },
+    );
+  }
+
+  //one side of the card
+  Widget _buildCardFace(FlashCard card, {required bool isFront}) {
+    final bgcolor = isFront ? Colors.white : Color(0xFFEFFFF5);
+    final labelColor = isFront ? Color(0xFF2563EB) : Color(0xFF16A34A);
+    final labelBg = isFront ? Color(0xFFEFF6FF) : Color(0xFFEFF6FF);
+
+    final labelText = isFront ? 'QUESTION' : 'ANSWER';
+    final bodyText = isFront ? card.question : card.answer;
+    final borderColor = labelColor;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: bgcolor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor.withOpacity(0.4), width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withOpacity(0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: labelBg,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
+            ),
+
+            child: Row(
+              children: [
+                Icon(
+                  isFront
+                      ? Icons.help_outline_rounded
+                      : Icons.lightbulb_outline_rounded,
+                  size: 16,
+                  color: labelColor,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  labelText,
+                  style: TextStyle(
+                    color: labelColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          //Card body Text
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  bodyText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          //Edit /Delete buttons
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16, right: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _iconBtn(
+                  icon: Icons.edit_outlined,
+                  color: const Color(0xFF2563EB),
+                  tooltip: 'Edit',
+                  onTap: () => _editCard(card),
+                ),
+                const SizedBox(width: 8),
+                _iconBtn(
+                  icon: Icons.delete_outline_rounded,
+                  color: Colors.red,
+                  tooltip: 'Delete',
+                  onTap: () => _deleteCard(card.id),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  //Small icon button helper
+  Widget _iconBtn({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
+      ),
+    );
+  }
+
+  //Show/hide answer button
+  Widget _buildShowAnswerButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _toggleAnswer,
+          icon: Icon(
+            _showAnswer
+                ? Icons.visibility_off_rounded
+                : Icons.visibility_rounded,
+            size: 20,
+          ),
+          label: Text(
+            _showAnswer ? 'Hide Answer' : 'Show Answer',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _showAnswer
+                ? const Color(0xFF16A34A)
+                : const Color(0xFF2563EB),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            elevation: 2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  //Prev/Next Navigation
+  Widget _buildNavButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _cards.length > 1 ? _goPrev : null,
+              icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+              label: const Text('Previous'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: const BorderSide(color: Color(0xFF2563EB)),
+                foregroundColor: const Color(0xFF2563EB),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _cards.length > 1 ? _goNext : null,
+              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              label: const Text('Next'),
+              iconAlignment: IconAlignment.end,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: const BorderSide(color: Color(0xFF2563EB)),
+                foregroundColor: const Color(0xFF2563EB),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ),
         ],
